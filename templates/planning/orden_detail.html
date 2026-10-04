@@ -1,0 +1,241 @@
+{% extends 'base.html' %}
+
+{% block title %}Detalle OT-{{ ot.idordentrabajo }} — Planificador Industrial{% endblock %}
+{% block page_heading %}Detalle Integral de Orden de Trabajo OT-{{ ot.idordentrabajo }}{% endblock %}
+{% block page_subheading %}{{ ot.nombreordentrabajo }} | Cliente: {{ ot.idcliente.nombrecliente }}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="{% url 'planning_ordenes_list' %}" class="btn btn-sm btn-outline-secondary rounded-pill">
+        <i class="bi bi-arrow-left me-1"></i> Volver al listado de OTs
+    </a>
+</div>
+
+<!-- Tarjetas Resumen de la OT -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title">Score de Prioridad</div>
+            <div class="kpi-value text-primary">{{ prioridad.score_total }}</div>
+            <div class="kpi-subtext text-muted">Comercial: Nivel {{ prioridad.datos_base.prioridad_comercial }}/5</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title">Holgura Operacional</div>
+            <div class="kpi-value {% if slack.holgura <= 0 %}text-danger{% elif slack.holgura <= 24 %}text-warning{% else %}text-success{% endif %}">
+                {{ slack.holgura }}h
+            </div>
+            <div class="kpi-subtext text-muted">{{ slack.estado }} (Disp: {{ slack.horas_disponibles }}h)</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title">Critical Ratio (CR)</div>
+            <div class="kpi-value {% if critical_ratio.cr < 1 %}text-danger{% elif critical_ratio.cr <= 1.2 %}text-warning{% else %}text-success{% endif %}">
+                {{ critical_ratio.cr }}
+            </div>
+            <div class="kpi-subtext text-muted">{{ critical_ratio.estado }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title">Fecha de Entrega</div>
+            <div class="fw-bold fs-5 text-dark mt-2">
+                {{ ot.fechaentrega|date:"Y-m-d H:i"|default:"Sin fecha" }}
+            </div>
+            <div class="kpi-subtext text-muted">Recepción: {{ ot.fecharecepcion|date:"Y-m-d"|default:"-" }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Explicabilidad de la Prioridad (Sección 33) -->
+<div class="modern-card border-start border-primary border-4">
+    <h5 class="fw-bold mb-2"><i class="bi bi-lightbulb-fill text-warning me-2"></i>Explicabilidad del Score Algorítmico</h5>
+    <p class="fs-6 text-dark mb-3">
+        <strong>Razón Principal:</strong> "{{ prioridad.explicacion }}"
+    </p>
+    <div class="row g-2 text-center">
+        <div class="col">
+            <div class="p-2 border rounded bg-light">
+                <div class="small text-muted">Fecha Entrega (40%)</div>
+                <div class="fw-bold fs-5">{{ prioridad.desglose.due_date.score }}</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="p-2 border rounded bg-light">
+                <div class="small text-muted">Holgura (25%)</div>
+                <div class="fw-bold fs-5">{{ prioridad.desglose.holgura.score }}</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="p-2 border rounded bg-light">
+                <div class="small text-muted">Impacto (20%)</div>
+                <div class="fw-bold fs-5">{{ prioridad.desglose.impacto.score }}</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="p-2 border rounded bg-light">
+                <div class="small text-muted">WSPT (10%)</div>
+                <div class="fw-bold fs-5">{{ prioridad.desglose.wspt.score }}</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="p-2 border rounded bg-light">
+                <div class="small text-muted">Comercial (5%)</div>
+                <div class="fw-bold fs-5">{{ prioridad.desglose.comercial.score }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Partes, Componentes y Hojas de Ruta -->
+<div class="modern-card">
+    <h5 class="fw-bold mb-3"><i class="bi bi-diagram-3-fill text-primary me-2"></i>Estructura: Partes, Componentes y Hojas de Ruta</h5>
+    <div class="table-responsive">
+        <table class="table-modern">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Parte</th>
+                    <th>Componente Bomba</th>
+                    <th>Criticidad</th>
+                    <th>Costo Fab.</th>
+                    <th>Hojas de Ruta Asociadas</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in partes_rel %}
+                <tr>
+                    <td>{{ p.itemparte|default:forloop.counter }}</td>
+                    <td class="fw-bold">{{ p.idparte.nombreparte }}</td>
+                    <td>{{ p.idcomponente.nombrecomponente }}</td>
+                    <td>
+                        {% if p.idparte.escritico %}
+                            <span class="badge bg-danger">Componente Crítico</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Estándar</span>
+                        {% endif %}
+                    </td>
+                    <td>${{ p.idparte.costofabricacion|default:"0" }}</td>
+                    <td>
+                        {% for hr in p.hojas_ruta.all %}
+                            <span class="badge bg-primary me-1">{{ hr.codhojaruta }}</span>
+                        {% empty %}
+                            <span class="text-muted small">Sin hoja de ruta</span>
+                        {% endfor %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-3">No hay partes asociadas a esta OT.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Movimientos de Trabajo en Taller -->
+<div class="modern-card">
+    <h5 class="fw-bold mb-3"><i class="bi bi-clock-history text-primary me-2"></i>Movimientos y Actividades Operacionales</h5>
+    <div class="table-responsive">
+        <table class="table-modern">
+            <thead>
+                <tr>
+                    <th>ID Mov</th>
+                    <th>Hoja Ruta</th>
+                    <th>Máquina</th>
+                    <th>Operador</th>
+                    <th>Actividad</th>
+                    <th>Inicio / Término</th>
+                    <th>Duración</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in movimientos %}
+                <tr>
+                    <td>{{ item.mov.idmovimientoordentrabajo }}</td>
+                    <td><span class="badge bg-light text-dark border">{{ item.mov.codhojaruta }}</span></td>
+                    <td class="fw-semibold">{{ item.mov.idmaquina.nombremaquina }}</td>
+                    <td>{{ item.mov.idoperador.nombreoperador|default:"No asignado" }}</td>
+                    <td>{{ item.mov.idactividad.nombreactividad }}</td>
+                    <td class="small">
+                        {{ item.mov.fechainicio|date:"m-d H:i" }} → 
+                        {% if item.mov.fechatermino %}
+                            {{ item.mov.fechatermino|date:"m-d H:i" }}
+                        {% else %}
+                            <span class="text-warning fw-bold">En curso</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <strong>{{ item.duracion.duracion_horas }}h</strong>
+                        <span class="text-muted small">({{ item.duracion.duracion_minutos }}m)</span>
+                    </td>
+                    <td>
+                        {% if item.duracion.estado == 'CERRADO' %}
+                            <span class="badge bg-success">Cerrado</span>
+                        {% elif item.duracion.estado == 'ABIERTO' %}
+                            <span class="badge bg-warning text-dark">Abierto</span>
+                        {% else %}
+                            <span class="badge bg-danger">{{ item.duracion.estado }}</span>
+                        {% endif %}
+                        {% if item.mov.checkncbomba %}
+                            <span class="badge bg-danger">Reproceso / NC</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-3">No hay movimientos registrados para esta OT.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- SLAs y ProgAvisos (Sección 14) -->
+<div class="modern-card">
+    <h5 class="fw-bold mb-3"><i class="bi bi-bell-fill text-primary me-2"></i>Seguimiento de SLAs y Avisos de Progreso</h5>
+    <div class="table-responsive">
+        <table class="table-modern">
+            <thead>
+                <tr>
+                    <th>Orden</th>
+                    <th>Etapa SLA</th>
+                    <th>Inicio Planificado</th>
+                    <th>Término Planificado</th>
+                    <th>Término Real</th>
+                    <th>Días Tramo</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pa in prog_avisos %}
+                <tr>
+                    <td>{{ pa.ordenproceso }}</td>
+                    <td class="fw-bold">{{ pa.idsla.nombresla }}</td>
+                    <td>{{ pa.fecha_inicio|date:"Y-m-d" }}</td>
+                    <td>{{ pa.fecha_termino|date:"Y-m-d" }}</td>
+                    <td>{{ pa.fecha_real_termino|date:"Y-m-d"|default:"Pendiente" }}</td>
+                    <td>{{ pa.dias_tramo }} días</td>
+                    <td>
+                        {% if pa.fecha_real_termino %}
+                            <span class="badge bg-success">Cumplido</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">En Progreso</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-3">No hay SLAs configurados para esta OT.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

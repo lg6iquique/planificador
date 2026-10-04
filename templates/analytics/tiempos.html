@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+
+{% block title %}Análisis Estadístico de Tiempos — Planificador Industrial{% endblock %}
+{% block page_heading %}Análisis Estadístico y Tiempos Estándar Base{% endblock %}
+{% block page_subheading %}Distribución de duraciones reales: Media, Mediana, Percentiles P50/P75/P90/P95 y Desviación Estándar (Secciones 25 y 26){% endblock %}
+
+{% block content %}
+<!-- Tarjetas Globales -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title">Muestras Históricas</div>
+            <div class="kpi-value text-primary">{{ stats.global.count }}</div>
+            <div class="kpi-subtext text-muted">Operaciones cerradas evaluadas</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title">Mediana Histórica (P50)</div>
+            <div class="kpi-value text-dark">{{ stats.global.median }}h</div>
+            <div class="kpi-subtext text-muted">Media: {{ stats.global.mean }}h (Std: {{ stats.global.std }})</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title">Percentil 75 / P90</div>
+            <div class="kpi-value text-warning">{{ stats.global.p75 }}h</div>
+            <div class="kpi-subtext text-muted">P90: {{ stats.global.p90 }}h | P95: {{ stats.global.p95 }}h</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title">Tiempo Estándar Base</div>
+            <div class="kpi-value text-success">{{ stats.global.tiempo_estimado_base }}h</div>
+            <div class="kpi-subtext text-muted">{{ stats.global.criterio_estimacion }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Análisis por Máquina -->
+<div class="modern-card">
+    <h5 class="fw-bold mb-3"><i class="bi bi-cpu-fill text-primary me-2"></i>Distribución Estadística por Máquina</h5>
+    <div class="table-responsive">
+        <table class="table-modern">
+            <thead>
+                <tr>
+                    <th>Máquina</th>
+                    <th>Muestras (n)</th>
+                    <th>Media</th>
+                    <th>Mediana (P50)</th>
+                    <th>P75</th>
+                    <th>P90</th>
+                    <th>Desv. Estándar</th>
+                    <th>Mín / Máx</th>
+                    <th>Tiempo Base Estándar</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in stats.por_maquina %}
+                <tr>
+                    <td class="fw-bold">{{ m.nombre }}</td>
+                    <td>{{ m.stats.count }}</td>
+                    <td>{{ m.stats.mean }}h</td>
+                    <td><span class="badge bg-light text-dark border">{{ m.stats.median }}h</span></td>
+                    <td>{{ m.stats.p75 }}h</td>
+                    <td>{{ m.stats.p90 }}h</td>
+                    <td>{{ m.stats.std }}h</td>
+                    <td class="small">{{ m.stats.min }}h — {{ m.stats.max }}h</td>
+                    <td>
+                        <strong class="text-success">{{ m.stats.tiempo_estimado_base }}h</strong>
+                        <div class="text-muted" style="font-size: 0.72rem;">{{ m.stats.criterio_estimacion }}</div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-3">No hay registros suficientes por máquina.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Análisis por Actividad y Operador -->
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="modern-card">
+            <h5 class="fw-bold mb-3"><i class="bi bi-wrench me-2 text-primary"></i>Por Actividad de Taller</h5>
+            <div class="table-responsive">
+                <table class="table-modern">
+                    <thead>
+                        <tr>
+                            <th>Actividad</th>
+                            <th>Muestras</th>
+                            <th>Mediana</th>
+                            <th>P75</th>
+                            <th>Tiempo Base</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in stats.por_actividad %}
+                        <tr>
+                            <td class="fw-semibold small">{{ a.nombre }}</td>
+                            <td>{{ a.stats.count }}</td>
+                            <td>{{ a.stats.median }}h</td>
+                            <td>{{ a.stats.p75 }}h</td>
+                            <td><strong class="text-success">{{ a.stats.tiempo_estimado_base }}h</strong></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="modern-card">
+            <h5 class="fw-bold mb-3"><i class="bi bi-person-badge-fill me-2 text-primary"></i>Por Operador / Técnico</h5>
+            <div class="table-responsive">
+                <table class="table-modern">
+                    <thead>
+                        <tr>
+                            <th>Operador</th>
+                            <th>Muestras</th>
+                            <th>Mediana</th>
+                            <th>Std</th>
+                            <th>Reprocesos</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for op in stats.por_operador %}
+                        <tr>
+                            <td class="fw-semibold small">{{ op.nombre }}</td>
+                            <td>{{ op.stats.count }}</td>
+                            <td>{{ op.stats.median }}h</td>
+                            <td>{{ op.stats.std }}h</td>
+                            <td>
+                                {% if op.reprocesos > 0 %}
+                                    <span class="badge bg-danger">{{ op.reprocesos }}</span>
+                                {% else %}
+                                    <span class="badge bg-success">0</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

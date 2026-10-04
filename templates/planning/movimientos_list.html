@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+
+{% block title %}Movimientos en Taller — Planificador Industrial{% endblock %}
+{% block page_heading %}Control de Movimientos y Operaciones de Taller{% endblock %}
+{% block page_subheading %}Seguimiento de tiempos reales, movimientos abiertos, bloqueos y reprocesos{% endblock %}
+
+{% block content %}
+<!-- Bloqueos Activos -->
+{% if bloqueos_activos %}
+<div class="alert alert-danger rounded-4 shadow-sm mb-4">
+    <div class="d-flex align-items-center mb-2">
+        <i class="bi bi-shield-slash-fill fs-4 me-2 text-danger"></i>
+        <h5 class="alert-heading m-0 fw-bold">Bloqueos Operacionales Activos en Taller</h5>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-borderless align-middle mb-0">
+            <thead>
+                <tr class="text-danger small">
+                    <th>ID Bloqueo</th>
+                    <th>Hoja de Ruta</th>
+                    <th>Operador Afectado</th>
+                    <th>Sección</th>
+                    <th>Inicio Bloqueo</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in bloqueos_activos %}
+                <tr>
+                    <td class="fw-bold">#{{ b.idmovimientobloqueo }}</td>
+                    <td><span class="badge bg-danger">{{ b.codhojaruta }}</span></td>
+                    <td>{{ b.idoperador.nombreoperador|default:"No registrado" }}</td>
+                    <td>{{ b.idseccion.nombreseccion|default:"Taller" }}</td>
+                    <td>{{ b.fecharebloqueo|date:"Y-m-d H:i" }}</td>
+                    <td><span class="badge bg-danger">Bloqueado</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="modern-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold m-0"><i class="bi bi-list-nested text-primary me-2"></i>Historial y Estado de Movimientos</h5>
+        <span class="badge bg-light text-dark border px-3 py-2">
+            Total Movimientos: <strong>{{ movimientos|length }}</strong>
+        </span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table-modern">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>OT Asociada</th>
+                    <th>Hoja Ruta</th>
+                    <th>Máquina</th>
+                    <th>Operador</th>
+                    <th>Actividad</th>
+                    <th>Inicio / Fin</th>
+                    <th>Duración Calculada</th>
+                    <th>Estado / Alerta</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in movimientos %}
+                <tr>
+                    <td><strong>#{{ item.mov.idmovimientoordentrabajo }}</strong></td>
+                    <td>
+                        <a href="{% url 'planning_orden_detail' item.mov.idordentrabajo_id %}" class="fw-bold text-decoration-none">
+                            OT-{{ item.mov.idordentrabajo_id }}
+                        </a>
+                    </td>
+                    <td><span class="badge bg-light text-dark border">{{ item.mov.codhojaruta }}</span></td>
+                    <td>{{ item.mov.idmaquina.nombremaquina }}</td>
+                    <td>{{ item.mov.idoperador.nombreoperador|default:"Sin asignar" }}</td>
+                    <td>{{ item.mov.idactividad.nombreactividad }}</td>
+                    <td class="small">
+                        {{ item.mov.fechainicio|date:"m-d H:i" }} → 
+                        {% if item.mov.fechatermino %}
+                            {{ item.mov.fechatermino|date:"m-d H:i" }}
+                        {% else %}
+                            <span class="text-warning fw-bold">En curso</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <strong>{{ item.duracion.duracion_horas }}h</strong>
+                        <div class="text-muted small">{{ item.duracion.duracion_minutos }} min</div>
+                    </td>
+                    <td>
+                        {% if item.duracion.estado == 'CERRADO' %}
+                            <span class="badge badge-success">Cerrado</span>
+                        {% elif item.duracion.estado == 'ABIERTO' %}
+                            <span class="badge badge-warning">Abierto (En Ejecución)</span>
+                        {% else %}
+                            <span class="badge badge-danger">{{ item.duracion.estado }}</span>
+                        {% endif %}
+
+                        {% if item.mov.reprocesosol or item.mov.reprocesocc or item.mov.checkncbomba %}
+                            <span class="badge bg-danger ms-1">Reproceso</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-4">No hay movimientos registrados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

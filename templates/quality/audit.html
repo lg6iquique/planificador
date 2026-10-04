@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+
+{% block title %}Auditoría de Calidad de Datos — Planificador Industrial{% endblock %}
+{% block page_heading %}Gobernanza y Calidad de Datos (Data Quality){% endblock %}
+{% block page_subheading %}Diagnóstico automático de consistencia referencial, fechas, duraciones y anomalías (Sección 48){% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title">Registros Evaluados</div>
+            <div class="kpi-value">{{ audit.total_registros_evaluados }}</div>
+            <div class="kpi-subtext text-muted">OTs, movimientos y hojas de ruta</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title">Registros Conformes</div>
+            <div class="kpi-value text-success">{{ audit.registros_validos }}</div>
+            <div class="kpi-subtext text-muted">100% íntegros y válidos</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title">Observaciones / Anomalías</div>
+            <div class="kpi-value text-danger">{{ audit.total_anomalias_detectadas }}</div>
+            <div class="kpi-subtext text-muted">En {{ audit.registros_con_problemas }} registros</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title">Índice Global de Calidad</div>
+            <div class="kpi-value {% if audit.porcentaje_calidad >= 85 %}text-success{% elif audit.porcentaje_calidad >= 70 %}text-warning{% else %}text-danger{% endif %}">
+                {{ audit.porcentaje_calidad }}%
+            </div>
+            <div class="kpi-subtext text-muted">Estándar mínimo POC: 70%</div>
+        </div>
+    </div>
+</div>
+
+<div class="modern-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold m-0"><i class="bi bi-list-check me-2 text-primary"></i>Detalle de Registros con Observaciones Detectadas</h5>
+        <div class="d-flex gap-2">
+            <span class="badge bg-danger">Crítica: {{ audit.resumen_por_severidad.CRITICA }}</span>
+            <span class="badge bg-warning text-dark">Alta: {{ audit.resumen_por_severidad.ALTA }}</span>
+            <span class="badge bg-info text-dark">Media: {{ audit.resumen_por_severidad.MEDIA }}</span>
+            <span class="badge bg-secondary">Informativa: {{ audit.resumen_por_severidad.INFORMATIVA }}</span>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table-modern">
+            <thead>
+                <tr>
+                    <th>Entidad</th>
+                    <th>Identificador</th>
+                    <th>Descripción</th>
+                    <th>Severidad</th>
+                    <th>Anomalías / Problemas Detectados</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for prob in audit.detalles_problemas %}
+                <tr>
+                    <td><span class="badge bg-light text-dark border">{{ prob.entidad }}</span></td>
+                    <td class="fw-bold">{{ prob.codigo }}</td>
+                    <td class="small">{{ prob.descripcion }}</td>
+                    <td>
+                        {% if prob.severidad == 'CRITICA' %}
+                            <span class="badge badge-danger">CRÍTICA</span>
+                        {% elif prob.severidad == 'ALTA' %}
+                            <span class="badge badge-danger">ALTA</span>
+                        {% elif prob.severidad == 'MEDIA' %}
+                            <span class="badge badge-warning">MEDIA</span>
+                        {% else %}
+                            <span class="badge badge-info">INFO</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <ul class="mb-0 ps-3 small text-danger">
+                            {% for p in prob.problemas %}
+                                <li>{{ p }}</li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-success py-4">
+                        <i class="bi bi-check-circle fs-3 d-block mb-2"></i>
+                        No se detectaron problemas de consistencia en la base de datos.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

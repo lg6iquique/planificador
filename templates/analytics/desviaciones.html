@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+
+{% block title %}Desviaciones y Semáforos — Planificador Industrial{% endblock %}
+{% block page_heading %}Control de Desviaciones, Semáforos y Holguras{% endblock %}
+{% block page_subheading %}Comparación Tiempo Real vs Tiempo Estimado y cálculo de márgenes críticos (Secciones 27, 28 y 29){% endblock %}
+
+{% block content %}
+<!-- Semáforos Resumen -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="kpi-card shadow-sm border-start border-success border-4">
+            <div class="kpi-title text-success"><i class="bi bi-check-circle-fill me-1"></i> Semáforo Verde (Conforme)</div>
+            <div class="kpi-value text-success">{{ resumen_semaforo.VERDE }}</div>
+            <div class="kpi-subtext text-muted">Desviación &le; {{ config.umbral_amarillo_horas }} horas</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="kpi-card shadow-sm border-start border-warning border-4">
+            <div class="kpi-title text-warning"><i class="bi bi-exclamation-triangle-fill me-1"></i> Semáforo Amarillo (Atención)</div>
+            <div class="kpi-value text-warning">{{ resumen_semaforo.AMARILLO }}</div>
+            <div class="kpi-subtext text-muted">{{ config.umbral_amarillo_horas }}h &lt; Desv &le; {{ config.umbral_rojo_horas }}h</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="kpi-card shadow-sm border-start border-danger border-4">
+            <div class="kpi-title text-danger"><i class="bi bi-x-octagon-fill me-1"></i> Semáforo Rojo (Crítico)</div>
+            <div class="kpi-value text-danger">{{ resumen_semaforo.ROJO }}</div>
+            <div class="kpi-subtext text-muted">Desviación &gt; {{ config.umbral_rojo_horas }} horas</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Desviaciones por Operación -->
+<div class="modern-card">
+    <h5 class="fw-bold mb-3"><i class="bi bi-speedometer2 text-primary me-2"></i>Desviación de Tiempo por Movimiento de Trabajo</h5>
+    <div class="table-responsive">
+        <table class="table-modern">
+            <thead>
+                <tr>
+                    <th>ID Mov</th>
+                    <th>OT / Hoja Ruta</th>
+                    <th>Máquina</th>
+                    <th>Actividad</th>
+                    <th>Tiempo Real</th>
+                    <th>Tiempo Estimado</th>
+                    <th>Desviación (Horas)</th>
+                    <th>Variación %</th>
+                    <th>Semáforo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in desviaciones %}
+                <tr>
+                    <td><strong>#{{ item.movimiento.idmovimientoordentrabajo }}</strong></td>
+                    <td>
+                        <a href="{% url 'planning_orden_detail' item.movimiento.idordentrabajo_id %}" class="fw-bold text-decoration-none">
+                            OT-{{ item.movimiento.idordentrabajo_id }}
+                        </a>
+                        <div class="text-muted small">{{ item.movimiento.codhojaruta }}</div>
+                    </td>
+                    <td>{{ item.movimiento.idmaquina.nombremaquina }}</td>
+                    <td class="small">{{ item.movimiento.idactividad.nombreactividad }}</td>
+                    <td><strong>{{ item.desviacion.tiempo_real_horas }}h</strong></td>
+                    <td>{{ item.desviacion.tiempo_estimado_horas }}h</td>
+                    <td>
+                        <strong class="{% if item.desviacion.desviacion_horas > 0 %}text-danger{% else %}text-success{% endif %}">
+                            {% if item.desviacion.desviacion_horas > 0 %}+{% endif %}{{ item.desviacion.desviacion_horas }}h
+                        </strong>
+                    </td>
+                    <td>
+                        <span class="small">{{ item.desviacion.desviacion_pct }}%</span>
+                    </td>
+                    <td>
+                        {% if item.desviacion.semaforo == 'VERDE' %}
+                            <span class="badge badge-success px-3 py-2">VERDE</span>
+                        {% elif item.desviacion.semaforo == 'AMARILLO' %}
+                            <span class="badge badge-warning px-3 py-2">AMARILLO</span>
+                        {% else %}
+                            <span class="badge badge-danger px-3 py-2">ROJO</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-3">No hay movimientos evaluados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Análisis de Holgura y Critical Ratio por OT Activa -->
+<div class="modern-card">
+    <h5 class="fw-bold mb-3"><i class="bi bi-hourglass-split text-primary me-2"></i>Holguras Operacionales y Critical Ratio (CR) en OTs Activas</h5>
+    <div class="table-responsive">
+        <table class="table-modern">
+            <thead>
+                <tr>
+                    <th>OT Código</th>
+                    <th>Cliente</th>
+                    <th>Horas Disponibles</th>
+                    <th>Horas Pendientes</th>
+                    <th>Holgura Calculada</th>
+                    <th>Critical Ratio (CR)</th>
+                    <th>Diagnóstico Operacional</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for o in ots_analisis %}
+                <tr>
+                    <td>
+                        <a href="{% url 'planning_orden_detail' o.ot.idordentrabajo %}" class="fw-bold text-decoration-none">
+                            OT-{{ o.ot.idordentrabajo }}
+                        </a>
+                    </td>
+                    <td>{{ o.ot.idcliente.nombrecliente }}</td>
+                    <td>{{ o.slack.horas_disponibles }}h</td>
+                    <td>{{ o.slack.horas_pendientes }}h</td>
+                    <td>
+                        {% if o.slack.holgura <= 0 %}
+                            <span class="badge badge-danger">{{ o.slack.holgura }}h</span>
+                        {% elif o.slack.holgura <= 24 %}
+                            <span class="badge badge-warning">{{ o.slack.holgura }}h</span>
+                        {% else %}
+                            <span class="badge badge-success">{{ o.slack.holgura }}h</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge badge-{{ o.critical_ratio.badge }} fs-6">{{ o.critical_ratio.cr }}</span>
+                        <span class="small text-muted d-block">{{ o.critical_ratio.estado }}</span>
+                    </td>
+                    <td>
+                        <span class="small text-secondary">{{ o.slack.mensaje }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

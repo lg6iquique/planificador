@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+
+{% block title %}Simulación de Urgencias — Planificador Industrial{% endblock %}
+{% block page_heading %}Simulación de Inserción de Orden Urgente y Costo de Oportunidad{% endblock %}
+{% block page_subheading %}Evaluación de escenarios A (Min Costo), B (Fecha Entrega) y C (Balanceado) y costo operacional estimado (Secciones 40 y 41){% endblock %}
+
+{% block content %}
+<!-- Selector de OT Urgente y Escenario -->
+<div class="modern-card">
+    <h5 class="fw-bold mb-3"><i class="bi bi-play-btn-fill text-warning me-2"></i>Configurar Parámetros de Simulación</h5>
+    <form method="post" class="row g-3 align-items-end">
+        {% csrf_token %}
+        <div class="col-md-6">
+            <label class="form-label small fw-semibold">Seleccionar Orden de Trabajo Urgente</label>
+            <select name="ot_urgente_id" class="form-select rounded-pill">
+                {% for ot in ots %}
+                    <option value="{{ ot.idordentrabajo }}" {% if resultado and resultado.orden_urgente.id == ot.idordentrabajo %}selected{% endif %}>
+                        OT-{{ ot.idordentrabajo }} — {{ ot.nombreordentrabajo }} (Prio: {{ ot.prioridad }}/5)
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label small fw-semibold">Escenario Operacional</label>
+            <select name="escenario" class="form-select rounded-pill">
+                <option value="A" {% if resultado and resultado.escenario_activo.escenario == 'A' %}selected{% endif %}>Escenario A — Minimizar Costo / Horas</option>
+                <option value="B" {% if resultado and resultado.escenario_activo.escenario == 'B' %}selected{% endif %}>Escenario B — Maximizar Cumplimiento de Fecha (Urgencia Frontal)</option>
+                <option value="C" {% if resultado and resultado.escenario_activo.escenario == 'C' %}selected{% endif %}>Escenario C — Balanceado (Costo vs Servicio)</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-warning text-dark fw-bold rounded-pill w-100">
+                <i class="bi bi-cpu me-1"></i> Simular
+            </button>
+        </div>
+    </form>
+</div>
+
+{% if resultado %}
+<!-- Resultados del Escenario Activo -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title">Escenario Simulado</div>
+            <div class="kpi-value text-primary">Escenario {{ resultado.escenario_activo.escenario }}</div>
+            <div class="kpi-subtext text-muted">{{ resultado.escenario_activo.descripcion }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title">OTs Desplazadas</div>
+            <div class="kpi-value text-danger">{{ resultado.escenario_activo.ots_desplazadas_count }}</div>
+            <div class="kpi-subtext text-muted">Órdenes postergadas en turno</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title">Retraso Acumulado Total</div>
+            <div class="kpi-value text-warning">{{ resultado.escenario_activo.horas_retraso_total }}h</div>
+            <div class="kpi-subtext text-muted">Horas de cola diferidas</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title">Costo de Oportunidad Estimado</div>
+            <div class="kpi-value text-dark">${{ resultado.escenario_activo.costo_oportunidad_total }}</div>
+            <div class="kpi-subtext text-muted">Costo operacional ($/h: ${{ resultado.escenario_activo.costo_operacion_hora }})</div>
+        </div>
+    </div>
+</div>
+
+<!-- Comparativa de Escenarios A, B y C -->
+<div class="modern-card">
+    <h5 class="fw-bold mb-3"><i class="bi bi-bar-chart-steps text-primary me-2"></i>Comparativa de Escenarios Operacionales (A vs B vs C)</h5>
+    <div class="table-responsive">
+        <table class="table-modern">
+            <thead>
+                <tr>
+                    <th>Escenario</th>
+                    <th>Estrategia Operacional</th>
+                    <th>OTs Desplazadas</th>
+                    <th>Horas Retraso</th>
+                    <th>Costo Oportunidad / Operacional</th>
+                    <th>Riesgo de Saturación</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for esc_key, esc_data in resultado.todos_los_escenarios.items %}
+                <tr class="{% if esc_key == resultado.escenario_activo.escenario %}table-active fw-bold{% endif %}">
+                    <td>
+                        <span class="badge {% if esc_key == 'B' %}bg-danger{% elif esc_key == 'A' %}bg-success{% else %}bg-primary{% endif %} fs-6 px-3 py-1">
+                            Escenario {{ esc_key }}
+                        </span>
+                    </td>
+                    <td>{{ esc_data.descripcion }}</td>
+                    <td>{{ esc_data.ots_desplazadas_count }} órdenes</td>
+                    <td>{{ esc_data.horas_retraso_total }} hrs</td>
+                    <td><strong>${{ esc_data.costo_oportunidad_total }}</strong></td>
+                    <td>
+                        {% if esc_data.maquinas_saturadas %}
+                            <span class="badge bg-danger">{{ esc_data.maquinas_saturadas.0 }}</span>
+                        {% else %}
+                            <span class="badge bg-success">Sin saturación crítica</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Desglose de OTs Desplazadas en el Escenario Activo -->
+<div class="modern-card">
+    <h5 class="fw-bold mb-3"><i class="bi bi-people-fill text-primary me-2"></i>Desglose de Órdenes Desplazadas y Costo Unitario</h5>
+    <div class="table-responsive">
+        <table class="table-modern">
+            <thead>
+                <tr>
+                    <th>OT Desplazada</th>
+                    <th>Cliente</th>
+                    <th>Inicio Planificado</th>
+                    <th>Nuevo Inicio Simulado</th>
+                    <th>Horas Retraso</th>
+                    <th>Costo Operación/h</th>
+                    <th>Costo Oportunidad Calculado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in resultado.escenario_activo.desplazamientos %}
+                <tr>
+                    <td>
+                        <a href="{% url 'planning_orden_detail' d.idordentrabajo %}" class="fw-bold text-decoration-none">
+                            OT-{{ d.idordentrabajo }}
+                        </a>
+                        <div class="text-muted small">{{ d.nombreordentrabajo }}</div>
+                    </td>
+                    <td>{{ d.cliente }}</td>
+                    <td>{{ d.inicio_planificado }}</td>
+                    <td class="text-danger fw-semibold">{{ d.nuevo_inicio }}</td>
+                    <td><strong>+{{ d.horas_retraso }}h</strong></td>
+                    <td>${{ d.costo_operacion_hora }}/h</td>
+                    <td>
+                        <span class="badge bg-light text-dark border fs-6">${{ d.costo_oportunidad }}</span>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-3">No hay órdenes desplazadas en este escenario.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

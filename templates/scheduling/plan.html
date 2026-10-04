@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+
+{% block title %}Secuencia y Planificación — Planificador Industrial{% endblock %}
+{% block page_heading %}Planificación y Secuencia Heurística Recomendada{% endblock %}
+{% block page_subheading %}Interacción Humano + Sistema: Secuencia por máquina con capacidad finita y decisión de validación (Secciones 35 y 42){% endblock %}
+
+{% block content %}
+<!-- Cabecera del Plan Activo -->
+<div class="modern-card">
+    <div class="row align-items-center">
+        <div class="col-md-7">
+            <div class="d-flex align-items-center gap-3">
+                <span class="badge {% if plan.estado == 'APROBADA' %}bg-success{% elif plan.estado == 'RECHAZADA' %}bg-danger{% else %}bg-secondary{% endif %} fs-6 px-3 py-2">
+                    {{ plan.estado }}
+                </span>
+                <div>
+                    <h4 class="fw-bold m-0">{{ plan.codigo }}</h4>
+                    <small class="text-muted">Fecha Planificada: {{ plan.fecha_planificacion }} | Creado: {{ plan.created_at|date:"Y-m-d H:i" }}</small>
+                </div>
+            </div>
+            <p class="mt-2 mb-0 small text-secondary">{{ plan.observaciones }}</p>
+        </div>
+        <div class="col-md-5 text-end d-flex justify-content-end gap-2">
+            <form method="post" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="generar_nuevo">
+                <button type="submit" class="btn btn-outline-primary rounded-pill">
+                    <i class="bi bi-arrow-repeat me-1"></i> Regenerar Secuencia
+                </button>
+            </form>
+
+            <!-- Acciones de Decisión Humana (Sección 42) -->
+            <form method="post" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="decision_plan_completo">
+                <input type="hidden" name="decision" value="APROBADA">
+                <button type="submit" class="btn btn-success rounded-pill px-3">
+                    <i class="bi bi-check2-circle me-1"></i> Aceptar Plan
+                </button>
+            </form>
+            <form method="post" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="decision_plan_completo">
+                <input type="hidden" name="decision" value="RECHAZADA">
+                <button type="submit" class="btn btn-outline-danger rounded-pill px-3">
+                    <i class="bi bi-x-circle me-1"></i> Rechazar
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Secuencia por Máquina -->
+{% for maquina_nom, detalles in detalles_por_maquina.items %}
+<div class="modern-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold m-0"><i class="bi bi-hdd-rack-fill text-primary me-2"></i>{{ maquina_nom }}</h5>
+        <span class="badge bg-light text-dark border px-3 py-1">
+            {{ detalles|length }} operaciones asignadas
+        </span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table-modern">
+            <thead>
+                <tr>
+                    <th>Secuencia</th>
+                    <th>OT / Bomba</th>
+                    <th>Inicio Estimado</th>
+                    <th>Fin Estimado</th>
+                    <th>Duración</th>
+                    <th>Score Prio</th>
+                    <th>Decisión Planificador</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in detalles %}
+                <tr>
+                    <td>
+                        <span class="badge bg-dark rounded-circle px-2 py-1 fs-6">
+                            {{ d.orden_secuencia }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{% url 'planning_orden_detail' d.orden_trabajo_id %}" class="fw-bold text-decoration-none">
+                            OT-{{ d.orden_trabajo_id }}
+                        </a>
+                        <div class="text-muted small">{{ d.orden_trabajo.nombreordentrabajo }}</div>
+                    </td>
+                    <td>{{ d.fecha_inicio_estimada|date:"m-d H:i" }}</td>
+                    <td>{{ d.fecha_fin_estimada|date:"m-d H:i" }}</td>
+                    <td><strong>{{ d.duracion_estimada_horas }}h</strong></td>
+                    <td><span class="badge bg-primary">{{ d.score_prioridad }}</span></td>
+                    <td>
+                        {% if d.decision_humana == 'ACEPTADO' %}
+                            <span class="badge badge-success">Aceptado</span>
+                        {% elif d.decision_humana == 'MODIFICADO' %}
+                            <span class="badge badge-warning">Modificado</span>
+                        {% elif d.decision_humana == 'RECHAZADO' %}
+                            <span class="badge badge-danger">Rechazado</span>
+                        {% else %}
+                            <span class="badge badge-primary">Propuesto</span>
+                        {% endif %}
+                        {% if d.nota_planificador %}
+                            <div class="text-muted" style="font-size: 0.72rem;">{{ d.nota_planificador|truncatechars:35 }}</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <!-- Formulario para aceptar/modificar/rechazar individualmente -->
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-light border rounded-pill dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                Gestionar
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <form method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="accion" value="decision_detalle">
+                                        <input type="hidden" name="detalle_id" value="{{ d.id }}">
+                                        <input type="hidden" name="decision" value="ACEPTADO">
+                                        <button type="submit" class="dropdown-item text-success"><i class="bi bi-check-lg me-1"></i> Aceptar</button>
+                                    </form>
+                                </li>
+                                <li>
+                                    <form method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="accion" value="decision_detalle">
+                                        <input type="hidden" name="detalle_id" value="{{ d.id }}">
+                                        <input type="hidden" name="decision" value="MODIFICADO">
+                                        <input type="hidden" name="nota" value="Reasignada de turno por planificador">
+                                        <button type="submit" class="dropdown-item text-warning"><i class="bi bi-pencil me-1"></i> Modificar</button>
+                                    </form>
+                                </li>
+                                <li>
+                                    <form method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="accion" value="decision_detalle">
+                                        <input type="hidden" name="detalle_id" value="{{ d.id }}">
+                                        <input type="hidden" name="decision" value="RECHAZADO">
+                                        <button type="submit" class="dropdown-item text-danger"><i class="bi bi-x-lg me-1"></i> Rechazar</button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% empty %}
+<div class="modern-card text-center py-5">
+    <p class="text-muted">No hay operaciones asignadas en este plan.</p>
+</div>
+{% endfor %}
+{% endblock %}

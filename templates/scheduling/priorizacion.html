@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+
+{% block title %}Priorización Inteligente — Planificador Industrial{% endblock %}
+{% block page_heading %}Motor de Priorización Multicriterio y Explicabilidad{% endblock %}
+{% block page_subheading %}Fórmula: 0.40·DueDate + 0.25·Holgura + 0.20·Impacto + 0.10·WSPT + 0.05·Comercial (Secciones 31 a 34){% endblock %}
+
+{% block content %}
+<!-- Tarjeta de Fórmula y Ponderaciones Configurables -->
+<div class="modern-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h5 class="fw-bold m-0"><i class="bi bi-sliders text-primary me-2"></i>Modelo Matemático de Ponderación (Normalizado 0-100)</h5>
+            <small class="text-muted">Los factores normalizados se combinan para calcular el Score de Prioridad.</small>
+        </div>
+        <button class="btn btn-sm btn-outline-primary rounded-pill" type="button" data-bs-toggle="collapse" data-bs-target="#collapseConfig">
+            <i class="bi bi-gear-fill me-1"></i> Configurar Pesos
+        </button>
+    </div>
+
+    <!-- Panel Colapsable para Ajustar Pesos -->
+    <div class="collapse mb-3" id="collapseConfig">
+        <form method="post" class="p-3 bg-light rounded-4 border">
+            {% csrf_token %}
+            <h6 class="fw-bold mb-3">Ajustar Ponderadores de Priorización POC</h6>
+            <div class="row g-3">
+                <div class="col-md">
+                    <label class="form-label small fw-semibold">Fecha Entrega (DueDate)</label>
+                    <input type="number" step="0.05" min="0" max="1" name="peso_due_date" value="{{ config.peso_due_date }}" class="form-control form-control-sm">
+                </div>
+                <div class="col-md">
+                    <label class="form-label small fw-semibold">Holgura Operacional</label>
+                    <input type="number" step="0.05" min="0" max="1" name="peso_holgura" value="{{ config.peso_holgura }}" class="form-control form-control-sm">
+                </div>
+                <div class="col-md">
+                    <label class="form-label small fw-semibold">Impacto / Criticidad</label>
+                    <input type="number" step="0.05" min="0" max="1" name="peso_impacto" value="{{ config.peso_impacto }}" class="form-control form-control-sm">
+                </div>
+                <div class="col-md">
+                    <label class="form-label small fw-semibold">Regla WSPT</label>
+                    <input type="number" step="0.05" min="0" max="1" name="peso_wspt" value="{{ config.peso_wspt }}" class="form-control form-control-sm">
+                </div>
+                <div class="col-md">
+                    <label class="form-label small fw-semibold">Prio. Comercial (1-5)</label>
+                    <input type="number" step="0.05" min="0" max="1" name="peso_comercial" value="{{ config.peso_comercial }}" class="form-control form-control-sm">
+                </div>
+            </div>
+            <div class="text-end mt-3">
+                <button type="submit" class="btn btn-primary btn-sm rounded-pill px-4">Guardar Nuevos Pesos</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="row g-2 text-center">
+        <div class="col">
+            <div class="p-2 border rounded bg-light">
+                <div class="text-muted small">DueDate</div>
+                <div class="fw-bold fs-5 text-primary">{{ config.peso_due_date|floatformat:2 }}</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="p-2 border rounded bg-light">
+                <div class="text-muted small">Holgura</div>
+                <div class="fw-bold fs-5 text-primary">{{ config.peso_holgura|floatformat:2 }}</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="p-2 border rounded bg-light">
+                <div class="text-muted small">Impacto</div>
+                <div class="fw-bold fs-5 text-primary">{{ config.peso_impacto|floatformat:2 }}</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="p-2 border rounded bg-light">
+                <div class="text-muted small">WSPT</div>
+                <div class="fw-bold fs-5 text-primary">{{ config.peso_wspt|floatformat:2 }}</div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="p-2 border rounded bg-light">
+                <div class="text-muted small">Comercial</div>
+                <div class="fw-bold fs-5 text-primary">{{ config.peso_comercial|floatformat:2 }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Ranking y Explicabilidad -->
+<div class="modern-card">
+    <h5 class="fw-bold mb-3"><i class="bi bi-sort-numeric-down text-primary me-2"></i>Ranking Ordenado de Producción y Explicabilidad</h5>
+    <div class="table-responsive">
+        <table class="table-modern">
+            <thead>
+                <tr>
+                    <th>Ranking</th>
+                    <th>OT / Bomba</th>
+                    <th>Cliente</th>
+                    <th>Score Final</th>
+                    <th>Desglose Factores</th>
+                    <th>Explicabilidad / Razón Decisoria</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in ranked_ots %}
+                <tr>
+                    <td>
+                        <span class="badge {% if item.posicion == 1 %}bg-danger{% elif item.posicion <= 3 %}bg-primary{% else %}bg-secondary{% endif %} fs-6 px-3 py-2 rounded-circle">
+                            {{ item.posicion }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{% url 'planning_orden_detail' item.idordentrabajo %}" class="fw-bold text-decoration-none text-dark">
+                            OT-{{ item.idordentrabajo }}
+                        </a>
+                        <div class="text-muted small">{{ item.nombreordentrabajo }}</div>
+                    </td>
+                    <td>{{ item.cliente }}</td>
+                    <td>
+                        <span class="badge bg-primary fs-5 px-3 py-2">{{ item.score_total }}</span>
+                    </td>
+                    <td class="small">
+                        <div class="d-flex flex-column gap-1">
+                            <span>Due: <strong>{{ item.desglose.due_date.score }}</strong> (contrib: {{ item.desglose.due_date.contribucion }})</span>
+                            <span>Holg: <strong>{{ item.desglose.holgura.score }}</strong> (contrib: {{ item.desglose.holgura.contribucion }})</span>
+                            <span>Imp: <strong>{{ item.desglose.impacto.score }}</strong> (contrib: {{ item.desglose.impacto.contribucion }})</span>
+                            <span>WSPT: <strong>{{ item.desglose.wspt.score }}</strong></span>
+                            <span>Comercial: <strong>{{ item.desglose.comercial.score }}</strong> (Nivel {{ item.datos_base.prioridad_comercial }})</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="p-2 rounded bg-light border-start border-3 {% if item.score_total >= 80 %}border-danger{% else %}border-primary{% endif %}" style="font-size: 0.85rem;">
+                            <strong>Criterio:</strong> {{ item.explicacion }}
+                        </div>
+                    </td>
+                    <td>
+                        <a href="{% url 'planning_orden_detail' item.idordentrabajo %}" class="btn btn-sm btn-outline-primary rounded-pill">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

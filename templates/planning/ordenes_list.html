@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block title %}Órdenes de Trabajo — Planificador Industrial{% endblock %}
+{% block page_heading %}Gestión de Órdenes de Trabajo (OTs){% endblock %}
+{% block page_subheading %}Identificación de bombas hidráulicas, componentes, prioridades y estado de avance{% endblock %}
+
+{% block content %}
+<div class="modern-card">
+    <div class="row g-3 align-items-center mb-3">
+        <div class="col-md-6">
+            <form method="get" class="d-flex gap-2">
+                <input type="text" name="q" value="{{ query }}" class="form-control rounded-pill" placeholder="Buscar por código, bomba o cliente...">
+                <button type="submit" class="btn btn-primary rounded-pill px-4">
+                    <i class="bi bi-search me-1"></i> Buscar
+                </button>
+                {% if query %}
+                    <a href="{% url 'planning_ordenes_list' %}" class="btn btn-outline-secondary rounded-pill">Limpiar</a>
+                {% endif %}
+            </form>
+        </div>
+        <div class="col-md-6 text-end">
+            <span class="badge bg-light text-dark border px-3 py-2">
+                Total órdenes: <strong>{{ ots|length }}</strong>
+            </span>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table-modern">
+            <thead>
+                <tr>
+                    <th>OT Código</th>
+                    <th>Bomba / Descripción</th>
+                    <th>Cliente</th>
+                    <th>Prio. Comercial</th>
+                    <th>Score Algorítmico</th>
+                    <th>Holgura</th>
+                    <th>Fecha Entrega</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in ots %}
+                <tr>
+                    <td>
+                        <a href="{% url 'planning_orden_detail' item.ot.idordentrabajo %}" class="fw-bold text-decoration-none text-primary fs-6">
+                            OT-{{ item.ot.idordentrabajo }}
+                        </a>
+                    </td>
+                    <td>
+                        <div class="fw-semibold">{{ item.ot.nombreordentrabajo }}</div>
+                        <div class="text-muted small">{{ item.ot.idproducto.nombreproducto }}</div>
+                    </td>
+                    <td>{{ item.ot.idcliente.nombrecliente }}</td>
+                    <td>
+                        {% if item.prioridad_comercial == 5 %}
+                            <span class="badge bg-danger">5 - Crítica</span>
+                        {% elif item.prioridad_comercial == 4 %}
+                            <span class="badge bg-warning text-dark">4 - Muy Alta</span>
+                        {% elif item.prioridad_comercial == 3 %}
+                            <span class="badge bg-primary">3 - Alta</span>
+                        {% elif item.prioridad_comercial == 2 %}
+                            <span class="badge bg-info text-dark">2 - Importante</span>
+                        {% else %}
+                            <span class="badge bg-secondary">1 - Normal</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge bg-dark fs-6 px-2 py-1">{{ item.score }}</span>
+                    </td>
+                    <td>
+                        {% if item.slack.holgura <= 0 %}
+                            <span class="badge badge-danger">{{ item.slack.holgura }}h (Riesgo)</span>
+                        {% elif item.slack.holgura <= 24 %}
+                            <span class="badge badge-warning">{{ item.slack.holgura }}h (Ajustada)</span>
+                        {% else %}
+                            <span class="badge badge-success">{{ item.slack.holgura }}h (Margen)</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="small">{{ item.ot.fechaentrega|date:"Y-m-d H:i"|default:"Sin fecha" }}</span>
+                    </td>
+                    <td>
+                        <a href="{% url 'planning_orden_detail' item.ot.idordentrabajo %}" class="btn btn-sm btn-outline-primary rounded-pill">
+                            <i class="bi bi-diagram-3 me-1"></i> Detalle
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-muted">No se encontraron órdenes de trabajo.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

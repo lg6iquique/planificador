@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+
+{% block title %}Capacidad y Cuellos de Botella — Planificador Industrial{% endblock %}
+{% block page_heading %}Análisis de Capacidad Finita y Cuellos de Botella{% endblock %}
+{% block page_subheading %}Utilización = (HorasAsignadas / HorasDisponibles) · 100 y detección de saturación (Secciones 36 y 37){% endblock %}
+
+{% block content %}
+<!-- Resumen General de Capacidad de Taller -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title">Disponibilidad Total Taller</div>
+            <div class="kpi-value text-primary">{{ capacidad.total_disp_taller }}h</div>
+            <div class="kpi-subtext text-muted">Suma de horas hábiles semanales por máquina</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title">Carga Total Asignada</div>
+            <div class="kpi-value text-dark">{{ capacidad.total_carga_taller }}h</div>
+            <div class="kpi-subtext text-muted">Horas de mecanizado programadas en cola</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title">Utilización Global Taller</div>
+            <div class="kpi-value {% if capacidad.utilizacion_global > 85 %}text-danger{% elif capacidad.utilizacion_global > 65 %}text-warning{% else %}text-success{% endif %}">
+                {{ capacidad.utilizacion_global }}%
+            </div>
+            <div class="kpi-subtext text-muted">Capacidad balanceada de la planta</div>
+        </div>
+    </div>
+</div>
+
+<!-- Alertas de Cuellos de Botella -->
+{% if bottlenecks.hay_cuellos %}
+<div class="alert alert-danger rounded-4 shadow-sm mb-4">
+    <div class="d-flex align-items-center mb-2">
+        <i class="bi bi-exclamation-octagon-fill fs-3 text-danger me-2"></i>
+        <h5 class="alert-heading m-0 fw-bold">Alerta: Máquinas Saturadas / Cuellos de Botella Detectados</h5>
+    </div>
+    <p class="mb-2" style="font-size: 0.9rem;">
+        Las siguientes máquinas han sobrepasado el 100% de su capacidad disponible o tienen colas críticas de trabajos esperando:
+    </p>
+    <div class="row g-2">
+        {% for c in bottlenecks.cuellos_de_botella %}
+        <div class="col-md-6">
+            <div class="p-3 bg-white rounded-3 border border-danger">
+                <div class="d-flex justify-content-between align-items-center">
+                    <strong class="text-danger fs-6">{{ c.nombremaquina }} ({{ c.codigomaquina }})</strong>
+                    <span class="badge bg-danger fs-6">{{ c.utilizacion_pct }}%</span>
+                </div>
+                <div class="small text-muted mt-1">
+                    Carga Asignada: <strong>{{ c.horas_asignadas }}h</strong> | Disponibilidad: <strong>{{ c.horas_disponibles }}h</strong>
+                </div>
+                <div class="small text-muted">
+                    OTs en espera: <strong>{{ c.cantidad_ots_en_cola }}</strong> órdenes
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Tarjetas y Barras de Utilización por Máquina -->
+<div class="modern-card">
+    <h5 class="fw-bold mb-3"><i class="bi bi-cpu-fill text-primary me-2"></i>Estado de Carga y Utilización por Centro de Mecanizado</h5>
+    <div class="table-responsive">
+        <table class="table-modern">
+            <thead>
+                <tr>
+                    <th>Máquina / Código</th>
+                    <th>Horas Disponibles</th>
+                    <th>Horas Asignadas</th>
+                    <th>Barra de Carga</th>
+                    <th>% Utilización</th>
+                    <th>OTs en Cola</th>
+                    <th>Diagnóstico Operativo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in capacidad.maquinas %}
+                <tr>
+                    <td>
+                        <div class="fw-bold">{{ m.nombremaquina }}</div>
+                        <span class="badge bg-light text-dark border">{{ m.codigomaquina }}</span>
+                    </td>
+                    <td>{{ m.horas_disponibles }}h</td>
+                    <td><strong>{{ m.horas_asignadas }}h</strong></td>
+                    <td style="width: 25%;">
+                        <div class="progress" style="height: 18px; border-radius: 10px;">
+                            <div class="progress-bar {% if m.utilizacion_pct > 100 %}bg-danger{% elif m.utilizacion_pct >= 75 %}bg-warning{% else %}bg-success{% endif %}" 
+                                 role="progressbar" 
+                                 style="width: {% if m.utilizacion_pct > 100 %}100{% else %}{{ m.utilizacion_pct }}{% endif %}%; font-size: 0.72rem; font-weight: bold;">
+                                {{ m.utilizacion_pct }}%
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge badge-{{ m.badge_class }} fs-6">{{ m.utilizacion_pct }}%</span>
+                    </td>
+                    <td>
+                        <span class="badge bg-secondary rounded-pill px-3">{{ m.cantidad_ots_en_cola }}</span>
+                    </td>
+                    <td>
+                        <span class="small text-secondary">{{ m.alerta }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

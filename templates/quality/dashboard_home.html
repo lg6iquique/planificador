@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard Ejecutivo — Planificador Industrial{% endblock %}
+{% block page_heading %}Panel de Control Operativo{% endblock %}
+{% block page_subheading %}Estado integral de reparación, fabricación y carga en taller de bombas hidráulicas{% endblock %}
+
+{% block content %}
+<!-- Tarjetas KPI Superiores -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title"><i class="bi bi-card-checklist me-1 text-primary"></i> Órdenes de Trabajo</div>
+            <div class="kpi-value text-primary">{{ total_ots }}</div>
+            <div class="kpi-subtext text-muted">{{ ots_activas }} activas en taller</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title"><i class="bi bi-clock-history me-1 text-warning"></i> Movimientos Abiertos</div>
+            <div class="kpi-value text-warning">{{ movimientos_abiertos }}</div>
+            <div class="kpi-subtext text-muted">De {{ total_movimientos }} movimientos totales</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title"><i class="bi bi-exclamation-triangle-fill me-1 {% if cuellos_info.hay_cuellos %}text-danger{% else %}text-success{% endif %}"></i> Cuellos de Botella</div>
+            <div class="kpi-value {% if cuellos_info.hay_cuellos %}text-danger{% else %}text-success{% endif %}">
+                {{ cuellos_info.cantidad_saturadas }}
+            </div>
+            <div class="kpi-subtext text-muted">Máquinas con carga &gt; 100%</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card shadow-sm">
+            <div class="kpi-title"><i class="bi bi-shield-check me-1 text-success"></i> Calidad de Datos</div>
+            <div class="kpi-value text-success">{{ calidad_pct }}%</div>
+            <div class="kpi-subtext text-muted">{{ anomalias_count }} observaciones detectadas</div>
+        </div>
+    </div>
+</div>
+
+<!-- Alerta de Capacidad si existen cuellos de botella -->
+{% if cuellos_info.hay_cuellos %}
+<div class="alert alert-danger d-flex align-items-center mb-4 rounded-4 shadow-sm" role="alert">
+    <i class="bi bi-exclamation-octagon-fill fs-3 me-3 text-danger"></i>
+    <div>
+        <h5 class="alert-heading mb-1 fw-bold">Alerta Operacional: Capacidad Insuficiente en Taller</h5>
+        <p class="mb-0" style="font-size: 0.9rem;">
+            Se han detectado máquinas saturadas con exceso de cola de trabajos:
+            {% for c in cuellos_info.cuellos_de_botella %}
+                <strong>{{ c.nombremaquina }} ({{ c.codigomaquina }})</strong> a un <strong>{{ c.utilizacion_pct }}%</strong> de utilización con {{ c.cantidad_ots_en_cola }} OTs en cola.
+            {% endfor %}
+            <a href="{% url 'scheduling_capacidad' %}" class="alert-link ms-2">Ver análisis de capacidad →</a>
+        </p>
+    </div>
+</div>
+{% endif %}
+
+<div class="row g-4 mb-4">
+    <!-- Tabla de OTs más Prioritarias -->
+    <div class="col-lg-8">
+        <div class="modern-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold m-0"><i class="bi bi-star-fill text-warning me-2"></i>Top Órdenes de Trabajo Priorizadas</h5>
+                <a href="{% url 'scheduling_priorizacion' %}" class="btn btn-sm btn-outline-primary rounded-pill">Ver ranking completo</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table-modern">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>OT / Bomba</th>
+                            <th>Cliente</th>
+                            <th>Score</th>
+                            <th>Holgura</th>
+                            <th>Razón Principal</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in top_prioritarias %}
+                        <tr>
+                            <td><span class="badge bg-dark rounded-circle">{{ item.posicion }}</span></td>
+                            <td>
+                                <a href="{% url 'planning_orden_detail' item.idordentrabajo %}" class="fw-bold text-decoration-none text-dark">
+                                    OT-{{ item.idordentrabajo }}
+                                </a>
+                                <div class="text-muted small">{{ item.nombreordentrabajo|truncatechars:35 }}</div>
+                            </td>
+                            <td><span class="small">{{ item.cliente }}</span></td>
+                            <td>
+                                <span class="badge bg-primary fs-6 px-2 py-1">{{ item.score_total }}</span>
+                            </td>
+                            <td>
+                                {% if item.datos_base.holgura_horas <= 0 %}
+                                    <span class="badge badge-danger">{{ item.datos_base.holgura_horas }}h</span>
+                                {% elif item.datos_base.holgura_horas <= 24 %}
+                                    <span class="badge badge-warning">{{ item.datos_base.holgura_horas }}h</span>
+                                {% else %}
+                                    <span class="badge badge-success">{{ item.datos_base.holgura_horas }}h</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="small text-secondary">{{ item.explicacion|truncatechars:55 }}</span>
+                            </td>
+                            <td>
+                                <a href="{% url 'planning_orden_detail' item.idordentrabajo %}" class="btn btn-sm btn-light border rounded-pill">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-3">No hay órdenes registradas.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Planes y Acciones Rápidas -->
+    <div class="col-lg-4">
+        <div class="modern-card">
+            <h5 class="fw-bold mb-3"><i class="bi bi-calendar2-check-fill text-primary me-2"></i>Planes de Producción</h5>
+            {% if planes_recientes %}
+                <ul class="list-group list-group-flush mb-3">
+                    {% for p in planes_recientes %}
+                    <li class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-semibold small">{{ p.codigo }}</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">{{ p.fecha_planificacion }}</div>
+                        </div>
+                        <span class="badge {% if p.estado == 'APROBADA' %}bg-success{% elif p.estado == 'RECHAZADA' %}bg-danger{% else %}bg-secondary{% endif %}">
+                            {{ p.estado }}
+                        </span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-muted small">No hay planes generados aún en la sesión.</p>
+            {% endif %}
+
+            <div class="d-grid gap-2 mt-3">
+                <a href="{% url 'scheduling_plan' %}" class="btn btn-primary rounded-pill">
+                    <i class="bi bi-play-circle me-1"></i> Generar Nueva Secuencia
+                </a>
+                <a href="{% url 'scheduling_simulacion' %}" class="btn btn-outline-warning text-dark rounded-pill">
+                    <i class="bi bi-lightning-charge me-1"></i> Simular Inserción Urgente
+                </a>
+            </div>
+        </div>
+
+        <div class="modern-card">
+            <h6 class="fw-bold text-muted text-uppercase mb-2" style="font-size: 0.75rem;">Tecnología POC Industrial</h6>
+            <div class="small text-secondary mb-2">
+                Motor basado en reglas heurísticas, WSPT, holguras operacionales y balanceo de carga en taller de bombas.
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <span class="badge bg-light text-dark border">Django 5.1</span>
+                <span class="badge bg-light text-dark border">SQLite POC</span>
+                <span class="badge bg-light text-dark border">Pandas / NumPy</span>
+                <span class="badge bg-light text-dark border">PostgreSQL Ready</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
