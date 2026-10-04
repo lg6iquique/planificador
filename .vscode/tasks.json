@@ -1,0 +1,32 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Django: Iniciar Servidor",
+            "type": "shell",
+            "command": "python manage.py runserver",
+            "isBackground": true,
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Django: Ejecutar Tests",
+            "type": "shell",
+            "command": "python manage.py test",
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Django: Poblar Datos (Seed)",
+            "type": "shell",
+            "command": "python manage.py init_poc_db",
+            "problemMatcher": []
+        }
+    ]
+}
