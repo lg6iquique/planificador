@@ -1,0 +1,36 @@
+# Entorno virtual
+venv/
+env/
+.venv/
+
+# Variables de entorno (NO subir al repositorio)
+.env
+
+# Archivos de base de datos local
+
+# Archivos Python compilados
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Distribución / packaging
+build/
+dist/
+*.egg-info/
+
+# Archivos de cobertura de tests
+htmlcov/
+.coverage
+*.cover
+
+# Archivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Archivos temporales
+*.log
+*.tmp

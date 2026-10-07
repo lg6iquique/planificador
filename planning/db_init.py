@@ -5,6 +5,18 @@ from django.utils import timezone
 
 logger = logging.getLogger('planning')
 
+
+def _is_postgres():
+    """Detecta si el motor activo es PostgreSQL. Evita import circular con db_utils."""
+    try:
+        from planning.db_utils import is_postgres
+        return is_postgres()
+    except Exception:
+        from django.conf import settings
+        engine = settings.DATABASES.get('default', {}).get('ENGINE', '')
+        return 'postgresql' in engine
+
+
 SQLITE_MCT_SCHEMA = """
 CREATE TABLE IF NOT EXISTS mct_cliente (
     idcliente INTEGER PRIMARY KEY,
@@ -187,18 +199,36 @@ CREATE TABLE IF NOT EXISTS mct_movimientobloqueo (
 
 
 def init_database_tables():
-    """Ejecuta el DDL de SQLite para crear las tablas mct_* si no existen."""
+    """Ejecuta el DDL de SQLite para crear las tablas mct_* si no existen.
+    
+    En modo PostgreSQL, las tablas mct_* ya existen en el esquema 'traking'.
+    Esta función solo ejecuta el DDL en SQLite.
+    """
+    if _is_postgres():
+        logger.info("Modo PostgreSQL: tablas mct_* existen en la BD real (esquema traking). Omitiendo DDL SQLite.")
+        return
     logger.info("Creando / verificando tablas mct_* en SQLite...")
     with connection.cursor() as cursor:
         cursor.executescript(SQLITE_MCT_SCHEMA)
     logger.info("Tablas mct_* creadas con éxito.")
 
 
+
 def seed_poc_data():
     """
     Pobla la base de datos con información industrial de bombas hidráulicas
     y casos de prueba sintéticos controlados según la sección 45 del prompt base.
+
+    En modo PostgreSQL:
+    - Omite la creación de tablas mct_* (ya existen en esquema traking)
+    - Omite la inserción de datos de prueba en tablas mct_*
+    - Ejecuta solo la inicialización de PocConfigPriorizacion
     """
+    if _is_postgres():
+        logger.info("Modo PostgreSQL: omitiendo seed de datos mct_* (datos reales disponibles en PostgreSQL).")
+        _init_poc_config()
+        return
+
     init_database_tables()
     logger.info("Iniciando sembrado de datos industriales para la POC...")
 
@@ -206,6 +236,7 @@ def seed_poc_data():
     # Usaremos datetime naive estándar para consistencia
     if hasattr(now, 'tzinfo') and now.tzinfo is not None:
         now = now.replace(tzinfo=None)
+
 
     with connection.cursor() as cursor:
         # 1. Clientes
